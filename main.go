@@ -35,17 +35,30 @@ func cloneHeader(dst, src http.Header) {
 
 func handleHTTP(w http.ResponseWriter, req *http.Request) {
 	var err error
+	var isSecure bool
 	dst := req.URL.String()
 	dst = strings.TrimPrefix(dst, "/r/")
-	dst = strings.TrimPrefix(dst, "http://")
-	dst = strings.TrimPrefix(dst, "http:/")
+
+	if strings.HasPrefix(dst, "https:") {
+		isSecure = true
+		dst = strings.TrimPrefix(dst, "https://")
+		dst = strings.TrimPrefix(dst, "https:/")
+	} else if strings.HasPrefix(dst, "http:") {
+		dst = strings.TrimPrefix(dst, "http://")
+		dst = strings.TrimPrefix(dst, "http:/")
+	}
+
 	dst, err = url.PathUnescape(dst)
 	if err != nil {
 		log.Print(err)
 		return
 	}
 
-	dst = "http://" + dst
+	if isSecure {
+		dst = "https://" + dst
+	} else {
+		dst = "http://" + dst
+	}
 
 	nreq, err := http.NewRequest(req.Method, dst, nil)
 	if err != nil {
