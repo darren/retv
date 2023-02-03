@@ -18,7 +18,7 @@ var addr = flag.String("l", "127.0.0.1:18090", "Listening address")
 var errNoRedirect = errors.New("skip redirect")
 
 func noRedirect(req *http.Request, via []*http.Request) error {
-	return errNoRedirect
+	return http.ErrUseLastResponse
 }
 
 var client = http.Client{
@@ -68,19 +68,22 @@ func handleHTTP(w http.ResponseWriter, req *http.Request) {
 	cloneHeader(nreq.Header, req.Header)
 
 	resp, err := client.Do(nreq)
-	if errors.Is(err, errNoRedirect) {
-		loc := resp.Header.Get("Location")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, "make request failed:"+err.Error())
+		return
+	}
+
+	loc := resp.Header.Get("Location")
+	if loc != "" {
 		nurl, err := url.Parse(loc)
 		if err == nil {
-			nloc := fmt.Sprintf("/r/%s/%s?%s", nurl.Host, nurl.Path, nurl.RawQuery)
+			nloc := fmt.Sprintf("/r/%s%s?%s", nurl.Host, nurl.Path, nurl.RawQuery)
 			log.Printf("[REDIR] %s", nloc)
 			resp.Header.Set("Location", nloc)
 		} else {
 			log.Printf("ParseURL: %v", err)
 		}
-	} else if err != nil {
-		log.Printf("ERROR: %v", err)
-		return
 	}
 
 	defer resp.Body.Close()

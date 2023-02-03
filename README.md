@@ -2,7 +2,7 @@
 
 一个简单的 m3u 代理
 
-VLC 在播放某些 iptv6 的在线 m3u 会出现视频，导致 Apple TV 某些 iptv 播放器(底层使用的 VLC)无法播放，因此有了这个简单代理
+Apple TV 的某些 iptv 播放器(底层使用的 VLC)地址中有 IPv6 地址时无法播放，因此有了这个简单代理
 
 ## caddy 配置
 
