@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -11,11 +10,10 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 var addr = flag.String("l", "127.0.0.1:18090", "Listening address")
-
-var errNoRedirect = errors.New("skip redirect")
 
 func noRedirect(req *http.Request, via []*http.Request) error {
 	return http.ErrUseLastResponse
@@ -33,58 +31,98 @@ func cloneHeader(dst, src http.Header) {
 	}
 }
 
-func handleHTTP(w http.ResponseWriter, req *http.Request) {
-	var err error
-	var isSecure bool
-	dst := req.URL.String()
-	dst = strings.TrimPrefix(dst, "/r/")
+func normalizeURL(src string) string {
+	var (
+		isSecure bool
+		err      error
+	)
 
-	if strings.HasPrefix(dst, "https:") {
+	if strings.HasPrefix(src, "https:") {
 		isSecure = true
-		dst = strings.TrimPrefix(dst, "https://")
-		dst = strings.TrimPrefix(dst, "https:/")
-	} else if strings.HasPrefix(dst, "http:") {
-		dst = strings.TrimPrefix(dst, "http://")
-		dst = strings.TrimPrefix(dst, "http:/")
+		src = strings.TrimPrefix(src, "https://")
+		src = strings.TrimPrefix(src, "https:/")
+	} else if strings.HasPrefix(src, "http:") {
+		src = strings.TrimPrefix(src, "http://")
+		src = strings.TrimPrefix(src, "http:/")
 	}
 
-	dst, err = url.PathUnescape(dst)
+	src, err = url.PathUnescape(src)
 	if err != nil {
-		log.Print(err)
-		return
+		log.Printf("normalize url failed: %v", err)
+		return src
 	}
 
 	if isSecure {
-		dst = "https://" + dst
+		src = "https://" + src
 	} else {
-		dst = "http://" + dst
+		src = "http://" + src
 	}
 
-	nreq, err := http.NewRequest(req.Method, dst, nil)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+	return src
+}
+
+func fixURL(req *http.Request) {
+	dst := req.URL.String()
+	dst = normalizeURL(strings.TrimPrefix(dst, "/r/"))
+	nurl, err := url.Parse(dst)
+	if err == nil {
+		req.URL = nurl
+		req.Host = nurl.Host
+	} else {
+		log.Printf("fix url failed: %v", err)
 	}
+	req.RequestURI = ""
+}
 
-	cloneHeader(nreq.Header, req.Header)
+func fixReferer(req *http.Request) {
+	referer := req.Referer()
+	if referer != "" {
+		uref, err := url.Parse(referer)
+		if err == nil {
+			if strings.HasPrefix(uref.Path, "/r/") {
+				nref := strings.TrimPrefix(uref.Path, "/r/")
+				if uref.RawQuery != "" {
+					nref += "?" + uref.RawQuery
+				}
+				nref = normalizeURL(nref)
+				req.Header.Set("Referer", nref)
+			}
+		}
+	}
+}
 
-	resp, err := client.Do(nreq)
+func fixLocation(resp *http.Response) {
+	loc := resp.Header.Get("Location")
+	if loc != "" {
+		nurl, err := url.Parse(loc)
+		if err == nil {
+			nloc := fmt.Sprintf("/r/%s%s", nurl.Host, nurl.Path)
+			if nurl.RawQuery != "" {
+				nloc += "?" + nurl.RawQuery
+			}
+			resp.Header.Set("Location", nloc)
+		} else {
+			log.Printf("ParseURL: %v", err)
+		}
+	}
+}
+
+func handleHTTP(w http.ResponseWriter, req *http.Request) {
+	var err error
+	var start = time.Now()
+	req = req.Clone(req.Context())
+
+	fixURL(req)
+	fixReferer(req)
+
+	resp, err := client.Do(req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(w, "make request failed:"+err.Error())
 		return
 	}
 
-	loc := resp.Header.Get("Location")
-	if loc != "" {
-		nurl, err := url.Parse(loc)
-		if err == nil {
-			nloc := fmt.Sprintf("/r/%s%s?%s", nurl.Host, nurl.Path, nurl.RawQuery)
-			log.Printf("[REDIR] %s", nloc)
-			resp.Header.Set("Location", nloc)
-		} else {
-			log.Printf("ParseURL: %v", err)
-		}
-	}
+	fixLocation(resp)
 
 	defer resp.Body.Close()
 	cloneHeader(w.Header(), resp.Header)
@@ -95,7 +133,12 @@ func handleHTTP(w http.ResponseWriter, req *http.Request) {
 	if client == "" {
 		client, _, _ = net.SplitHostPort(req.RemoteAddr)
 	}
-	log.Printf("%s [%s] %s %s", client, req.UserAgent(), ByteCount(n), dst)
+	log.Printf("%s %s %v [%s]\n%s\n%s\n------------------------------",
+		client, ByteCount(n), time.Since(start),
+		req.UserAgent(),
+		req.URL.String(),
+		req.Referer(),
+	)
 }
 
 func ByteCount(b int64) string {
