@@ -31,6 +31,52 @@ func cloneHeader(dst, src http.Header) {
 	}
 }
 
+// Copied from https://github.com/golang/go/blob/master/src/net/http/httputil/reverseproxy.go
+
+// Hop-by-hop headers. These are removed when sent to the backend.
+// http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
+var hopHeaders = []string{
+	"Connection",
+	"Keep-Alive",
+	"Proxy-Authenticate",
+	"Proxy-Authorization",
+	"Te", // canonicalized version of "TE"
+	"Trailers",
+	"Transfer-Encoding",
+	"Upgrade",
+}
+
+// removeConnectionHeaders removes hop-by-hop headers listed in the "Connection" header of h.
+// See RFC 7230, section 6.1
+func removeConnectionHeaders(h http.Header) {
+	if c := h.Get("Connection"); c != "" {
+		for _, f := range strings.Split(c, ",") {
+			if f = strings.TrimSpace(f); f != "" {
+				h.Del(f)
+			}
+		}
+	}
+}
+
+func removeHopHeaders(h http.Header) {
+	for _, k := range hopHeaders {
+		hv := h.Get(k)
+		if hv == "" {
+			continue
+		}
+		if k == "Te" && hv == "trailers" {
+			continue
+		}
+		h.Del(k)
+	}
+}
+
+// prune clean http header
+func prune(h http.Header) {
+	removeConnectionHeaders(h)
+	removeHopHeaders(h)
+}
+
 func normalizeURL(src string) string {
 	var (
 		isSecure bool
@@ -62,6 +108,7 @@ func normalizeURL(src string) string {
 }
 
 func fixURL(req *http.Request) {
+	prune(req.Header)
 	dst := req.URL.String()
 	dst = normalizeURL(strings.TrimPrefix(dst, "/r/"))
 	nurl, err := url.Parse(dst)
