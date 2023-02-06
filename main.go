@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -154,6 +155,12 @@ func fixLocation(resp *http.Response) {
 	}
 }
 
+var bufPool = sync.Pool{
+	New: func() any {
+		return make([]byte, 8*1024*1024)
+	},
+}
+
 func handleHTTP(w http.ResponseWriter, req *http.Request) {
 	var err error
 	var start = time.Now()
@@ -174,7 +181,10 @@ func handleHTTP(w http.ResponseWriter, req *http.Request) {
 	defer resp.Body.Close()
 	cloneHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
-	n, _ := io.Copy(w, resp.Body)
+
+	buf := bufPool.Get().([]byte)
+	n, _ := io.CopyBuffer(w, resp.Body, buf)
+	defer bufPool.Put(buf)
 
 	client := req.Header.Get("X-Forwarded-For")
 	if client == "" {
