@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -15,6 +17,8 @@ import (
 )
 
 var addr = flag.String("l", "127.0.0.1:18090", "Listening address")
+
+const m3uMagic = "#EXTM3U"
 
 func noRedirect(req *http.Request, via []*http.Request) error {
 	return http.ErrUseLastResponse
@@ -155,6 +159,24 @@ func fixLocation(resp *http.Response) {
 	}
 }
 
+func fixBody(src io.Reader) string {
+	var w bytes.Buffer
+	scanner := bufio.NewScanner(src)
+	for scanner.Scan() {
+		text := scanner.Text()
+		if strings.HasPrefix(text, "http://") ||
+			strings.HasPrefix(text, "https://") {
+			fmt.Fprintln(&w, "/r/"+text)
+		} else {
+			fmt.Fprintln(&w, text)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Printf("fix body failed: %v", err)
+	}
+	return w.String()
+}
+
 var bufPool = sync.Pool{
 	New: func() any {
 		return make([]byte, 8*1024*1024)
@@ -179,11 +201,27 @@ func handleHTTP(w http.ResponseWriter, req *http.Request) {
 	fixLocation(resp)
 
 	defer resp.Body.Close()
+
+	var body io.Reader = resp.Body
+	if int(resp.ContentLength) > len(m3uMagic) {
+		var peek = make([]byte, len(m3uMagic))
+		pn, err := resp.Body.Read(peek)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			io.WriteString(w, "detect magic header failed:"+err.Error())
+		}
+		body = io.MultiReader(bytes.NewReader(peek[:pn]), resp.Body)
+		if bytes.Equal(peek[:pn], []byte(m3uMagic)) {
+			fixedBody := fixBody(body)
+			resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(fixedBody)))
+			body = strings.NewReader(fixedBody)
+		}
+	}
+
 	cloneHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
-
 	buf := bufPool.Get().([]byte)
-	n, _ := io.CopyBuffer(w, resp.Body, buf)
+	n, _ := io.CopyBuffer(w, body, buf)
 	defer bufPool.Put(buf)
 
 	client := req.Header.Get("X-Forwarded-For")
