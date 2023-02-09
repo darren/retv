@@ -53,3 +53,7 @@ WantedBy=multi-user.target
 ## 感谢
 
 @fanmingming 的项目 https://github.com/fanmingming/live
+
+## 参考资料
+
+1. https://en.wikipedia.org/wiki/RTP_payload_formats
