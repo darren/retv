@@ -44,5 +44,6 @@ func main() {
 	mux.HandleFunc("/r/", handleHLS)
 	mux.HandleFunc("/rtp/", handleRTP)
 
+	log.Printf("Listening on %s", *addr)
 	log.Fatal(http.ListenAndServe(*addr, &mux))
 }

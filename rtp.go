@@ -11,6 +11,17 @@ import (
 	"github.com/pion/rtp"
 )
 
+// https://en.wikipedia.org/wiki/RTP_payload_formats
+const (
+	RTP_Payload_MP2T = 33
+)
+
+const (
+	// https://www.w3.org/2013/12/byte-stream-format-registry/mp2t-byte-stream-format.html
+	ContentType_MP2T    = "video/MP2T"
+	ContentType_DEFAULT = "application/octet-stream"
+)
+
 func handleRTP(w http.ResponseWriter, req *http.Request) {
 	var path = req.URL.Path
 	var wc int64
@@ -60,13 +71,20 @@ func handleRTP(w http.ResponseWriter, req *http.Request) {
 	conn.SetReadDeadline(time.Time{})
 
 	p := &rtp.Packet{}
-
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.WriteHeader(http.StatusOK)
-
+	headerSent := false
 	for {
 		if err = p.Unmarshal(buf[:n]); err != nil {
 			return
+		}
+
+		if !headerSent {
+			headerSent = true
+			if p.PayloadType == RTP_Payload_MP2T {
+				w.Header().Set("Content-Type", ContentType_MP2T)
+			} else {
+				w.Header().Set("Content-Type", ContentType_DEFAULT)
+			}
+			w.WriteHeader(http.StatusOK)
 		}
 
 		if _, werr := w.Write(p.Payload); werr != nil {
