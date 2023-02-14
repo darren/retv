@@ -19,17 +19,6 @@ Apple TV 的某些 iptv 播放器(底层使用的 VLC)地址中有 IPv6 地址�
 }
 ```
 
-## 样例 m3u 列表配置
-
-```
-#EXTINF:-1 tvg-id="CHC动作电影" tvg-name="CHC动作电影" tvg-logo="" group-title="其他",CHC动作电影
-http://192.168.1.200/r/[2409:8087:7000:20:1000::22]:6060/yinhe/2/ch00000090990000002055/index.m3u8?virtualDomain=yinhe.live_hls.zte.com
-#EXTINF:-1 tvg-id="CHC家庭影院" tvg-name="CHC家庭影院" tvg-logo="" group-title="其他",CHC家庭影院
-http://192.168.1.200/r/[2409:8087:7000:20:1000::22]:6060/yinhe/2/ch00000090990000002085/index.m3u8?virtualDomain=yinhe.live_hls.zte.com
-#EXTINF:-1 tvg-id="CHC高清电影" tvg-name="CHC高清电影" tvg-logo="" group-title="其他",CHC高清电影
-http://192.168.1.200/r/[2409:8087:7000:20:1000::22]:6060/yinhe/2/ch00000090990000002065/index.m3u8?virtualDomain=yinhe.live_hls.zte.com
-```
-
 ## systemd 服务文件
 
 ```
@@ -49,10 +38,6 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 ```
-
-## 感谢
-
-@fanmingming 的项目 https://github.com/fanmingming/live
 
 ## 参考资料
 
