@@ -11,6 +11,7 @@ Apple TV 的某些 iptv 播放器(底层使用的 VLC)地址中有 IPv6 地址�
   bind 192.168.1.200
   route {
     reverse_proxy /r/* 127.0.0.1:18090
+    reverse_proxy /rtp/* 127.0.0.1:18090
 
     file_server /* {
       root  /var/www/html
