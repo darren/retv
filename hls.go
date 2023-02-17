@@ -209,16 +209,11 @@ func handleHLS(w http.ResponseWriter, req *http.Request) {
 
 	cloneHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
-
-	buf := bufPool.Get().([]byte)
-	defer bufPool.Put(buf)
-
-	n, _ := io.CopyBuffer(w, body, buf)
+	n, _ := io.Copy(w, body)
 
 	client := req.Header.Get("X-Forwarded-For")
 	if client == "" {
 		client, _, _ = net.SplitHostPort(req.RemoteAddr)
 	}
-
 	log.Printf("[HLS] %s %s %s %s [%s]", client, path, time.Since(start), ByteCount(n), req.UserAgent())
 }

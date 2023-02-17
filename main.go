@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -15,15 +15,11 @@ var (
 	iface   = flag.String("i", "eth0", "Listening multicast interface")
 	timeout = flag.Duration("o", time.Second, "rtp read timeout")
 	bufsize = flag.Int("b", 1, "buffer size in mega bytes")
+	debug   = flag.Bool("d", false, "enable debug log")
 )
 
 var inf *net.Interface
-
-var bufPool = sync.Pool{
-	New: func() any {
-		return make([]byte, *bufsize*1024*1024)
-	},
-}
+var debugLog *log.Logger
 
 func main() {
 	if os.Getppid() == 1 {
@@ -33,6 +29,12 @@ func main() {
 	}
 
 	flag.Parse()
+
+	if *debug {
+		debugLog = log.New(os.Stderr, "", log.Flags())
+	} else {
+		debugLog = log.New(io.Discard, "", log.Flags())
+	}
 
 	var err error
 	inf, err = net.InterfaceByName(*iface)
