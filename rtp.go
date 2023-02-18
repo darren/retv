@@ -113,7 +113,7 @@ func (s *Stream) ioLoop() (err error) {
 		pool bytes.Buffer
 		data []byte
 
-		timer = time.NewTicker(time.Second)
+		timer = time.NewTicker(200 * time.Millisecond)
 		buf   = make([]byte, 1500)
 	)
 
