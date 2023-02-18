@@ -21,7 +21,7 @@ const (
 
 const (
 	// https://www.w3.org/2013/12/byte-stream-format-registry/mp2t-byte-stream-format.html
-	ContentType_MP2T    = "video/MP2T"
+	ContentType_MP2T    = "video/mp2t"
 	ContentType_DEFAULT = "application/octet-stream"
 )
 
