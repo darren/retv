@@ -14,7 +14,6 @@ var (
 	addr    = flag.String("l", "127.0.0.1:18090", "Listening address")
 	iface   = flag.String("i", "eth0", "Listening multicast interface")
 	timeout = flag.Duration("o", time.Second, "rtp read timeout")
-	bufsize = flag.Int("b", 1, "buffer size in mega bytes")
 	debug   = flag.Bool("d", false, "enable debug log")
 )
 
