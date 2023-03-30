@@ -192,7 +192,7 @@ func handleHLS(w http.ResponseWriter, req *http.Request) {
 	defer resp.Body.Close()
 
 	var body io.Reader = resp.Body
-	if int(resp.ContentLength) > len(m3uMagic) {
+	if resp.ContentLength == -1 || int(resp.ContentLength) > len(m3uMagic) {
 		var peek = make([]byte, len(m3uMagic))
 		pn, err := resp.Body.Read(peek)
 		if err != nil {
