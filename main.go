@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
 )
@@ -44,7 +45,16 @@ func main() {
 	var mux http.ServeMux
 	mux.HandleFunc("/r/", handleHLS)
 	mux.HandleFunc("/rtp/", handleRTP)
-
+	if *debug {
+		mux.HandleFunc("/debug/pprof/", http.DefaultServeMux.ServeHTTP)
+	}
+	SdNotify("READY=1")
+	go func() {
+		for {
+			updateStatus()
+			time.Sleep(5 * time.Second)
+		}
+	}()
 	log.Printf("Listening on %s", *addr)
 	log.Fatal(http.ListenAndServe(*addr, &mux))
 }

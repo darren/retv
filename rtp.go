@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/rtp"
@@ -182,6 +183,7 @@ func (s *Stream) Join(client string) (reader *Reader, err error) {
 	s.Lock()
 	s.readers[client] = reader
 	s.Unlock()
+	atomic.AddInt32(&rtpServer.clientCount, 1)
 	return
 }
 
@@ -190,6 +192,7 @@ func (s *Stream) Leave(client string) {
 	s.Lock()
 	delete(s.readers, client)
 	s.Unlock()
+	atomic.AddInt32(&rtpServer.clientCount, -1)
 }
 
 func (s *Stream) Close() (err error) {
@@ -229,13 +232,23 @@ func (r *Reader) Read(buf []byte) (n int, err error) {
 
 type RTPServer struct {
 	sync.RWMutex
-	streams map[string]*Stream
+	streams     map[string]*Stream
+	streamCount int
+	clientCount int32
 }
 
 func NewRTPServer() *RTPServer {
 	return &RTPServer{
 		streams: make(map[string]*Stream),
 	}
+}
+
+func (r *RTPServer) Count() (streamCount, clientCount int) {
+	r.RLock()
+	streamCount = r.streamCount
+	r.RUnlock()
+	clientCount = int(atomic.LoadInt32(&r.clientCount))
+	return
 }
 
 func (r *RTPServer) Find(address string, timeout time.Duration) (*Stream, error) {
@@ -253,6 +266,7 @@ func (r *RTPServer) Find(address string, timeout time.Duration) (*Stream, error)
 	r.Lock()
 	stream.OnEvent(r.HandleEvent)
 	r.streams[address] = stream
+	r.streamCount = len(r.streams)
 	r.Unlock()
 	return stream, nil
 }
@@ -262,6 +276,7 @@ func (r *RTPServer) HandleEvent(evt *Event) error {
 		debugLog.Printf("Handle Stream Close for: %s", evt.address)
 		r.Lock()
 		delete(r.streams, evt.address)
+		r.streamCount = len(r.streams)
 		r.Unlock()
 	}
 	return nil

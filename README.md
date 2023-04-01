@@ -29,7 +29,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=simple
+Type=notify
 PIDFile=/run/retv.pid
 ExecStart=/usr/bin/retv -l 127.0.0.1:18090
 Restart=always
@@ -38,6 +38,16 @@ RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
+```
+
+## system状态更新
+
+```
+systemctl status retv
+
+report status like:
+
+Status: "RTP(stream: 1, client: 2), HLS(client: 1)"
 ```
 
 ## 参考资料

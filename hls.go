@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -170,6 +171,9 @@ func fixBody(src io.Reader) string {
 	}
 	return w.String()
 }
+
+var hlsClient int64
+
 func handleHLS(w http.ResponseWriter, req *http.Request) {
 	var err error
 	var start = time.Now()
@@ -207,6 +211,11 @@ func handleHLS(w http.ResponseWriter, req *http.Request) {
 			body = strings.NewReader(fixedBody)
 		}
 	}
+
+	atomic.AddInt64(&hlsClient, 1)
+	updateStatus()
+	defer updateStatus()
+	defer atomic.AddInt64(&hlsClient, -1)
 
 	cloneHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
