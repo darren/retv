@@ -179,6 +179,7 @@ func handleHLS(w http.ResponseWriter, req *http.Request) {
 
 	fixURL(req)
 	fixReferer(req)
+	req.Header.Del("Accept-Encoding") // let net/http handle gzip
 
 	resp, err := client.Do(req)
 	if err != nil {
